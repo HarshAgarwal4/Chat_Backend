@@ -29,7 +29,12 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 app.use(clerkMiddleware())
-app.use(requireAuth())
+app.use((req, res, next) => {
+  if (req.path === "/" || req.path.startsWith("/public")) {
+    return next() // Skip auth for these routes
+  }
+  return requireAuth()(req, res, next) // Apply auth everywhere else
+})
 
 app.use('/', userRoute)
 app.use('/', RequestRoute)

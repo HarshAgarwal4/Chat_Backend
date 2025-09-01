@@ -68,6 +68,11 @@ const UserSchema = new mongoose.Schema({
 	],
 	contacts: [
 		{
+			status:{
+				type:String,
+				enum: ['offline' , 'online'],
+				default: 'offline'
+			},
 			username: {
 				type: String,
 				required: true
@@ -97,9 +102,14 @@ const UserSchema = new mongoose.Schema({
 						type: String,
 						required:true,
 					},
+					Date:{
+						type: String,
+						required: true
+					},
 					status:{
 						type:String,
-						enum: ['sent' , 'delivered' , 'seen' , 'NotByMe']
+						enum: ['sent' , 'delivered' , 'seen'],
+						default: 'sent'
 					}
 				}
 			]

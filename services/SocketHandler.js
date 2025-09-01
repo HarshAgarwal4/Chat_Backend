@@ -3,6 +3,8 @@ import { userModel } from "../client/models/User.js"
 let users = {}
 let PendingMessages = {}
 let CopyOfPendingMessages = {}
+let PendingRequests = {}
+let pendingApprovals = {}
 
 async function CheckChanges(Copy, Original) {
     if (JSON.stringify(Copy) === JSON.stringify(Original)) {
@@ -18,7 +20,7 @@ async function socketHandler(io) {
             users[userId] = socket.id
             io.to(users[userId]).emit('registered', socket.id)
             console.log(users)
-            io.emit('Online-status' , userId)
+            socket.broadcast.emit('Online-status', userId)
             if (PendingMessages[userId]) {
                 PendingMessages[userId].forEach((msg) => {
                     io.to(users[userId]).emit('recieve-message', msg)
@@ -26,13 +28,27 @@ async function socketHandler(io) {
                 });
                 delete PendingMessages[userId]
             }
+            if (PendingRequests[userId]) {
+                PendingRequests[userId].forEach((request) => {
+                    io.to(users[userId]).emit('recieved-request', request)
+                })
+                delete PendingRequests[userId]
+            }
+            if (pendingApprovals[userId]) {
+                pendingApprovals[userId].forEach((request) => {
+                    io.to(users[userId]).emit('accepted', request)
+                })
+                delete pendingApprovals[userId]
+            }
         })
 
         socket.on('send-message', (obj) => {
             console.log(obj)
             let obj1 = {
                 from: obj.from,
-                msg: obj.msg
+                msg: obj.msg,
+                Time: new Date().toLocaleTimeString().slice(0,5),
+                Date: new Date().toLocaleDateString()
             }
             if (users[obj.to]) {
                 io.to(users[obj.to]).emit('recieve-message', obj1)
@@ -43,20 +59,57 @@ async function socketHandler(io) {
             }
         })
 
+        socket.on('send-request', (obj) => {
+            console.log('send' , obj)
+            let senderObj = {
+                username: obj.myusername,
+                avatar: obj.myavatar,
+                userId: obj.myuserId
+            }
+            let recieverObj = {
+                username: obj.username,
+                avatar: obj.avatar,
+                userId: obj.userId
+            }
+            if (users[obj.userId]) {
+                io.to(users[obj.userId]).emit('recieved-request', senderObj)
+            } else {
+                if (!PendingRequests[obj.userId]) PendingRequests[obj.userId] = []
+                PendingRequests[obj.userId].push(senderObj)
+            }
+        })
+
+        socket.on('accept-request', (obj) => {
+            console.log(obj)
+            let obj2 = {
+                username: obj.username,
+                avatar: obj.avatar,
+                userId: obj.myuserId
+            }
+            let userId = obj.userId
+            if (users[obj.userId]) {
+                io.to(obj.userId).emit('accepted', obj2)
+            } else {
+                if (!pendingApprovals[obj.userId]) pendingApprovals[obj.userId] = []
+                pendingApprovals[obj.userId].push(obj2)
+            }
+        })
+
         socket.on('user-disconnect', async (contacts, id) => {
+            socket.broadcast.emit('Offline-status' , id)
             try {
-                console.log(contacts , id)
-                let findUser = await userModel.findOneAndUpdate(
-                    { clerkId: id },
-                    {
-                        $set: {
-                            contacts: JSON.parse(contacts)
-                        }
-                    },
-                    { new: true }
-                )
-                console.log(findUser)
-            }catch(err) {
+                //console.log(contacts, id)
+                // let findUser = await userModel.findOneAndUpdate(
+                //     { clerkId: id },
+                //     {
+                //         $set: {
+                //             contacts: JSON.parse(contacts)
+                //         }
+                //     },
+                //     { new: true }
+                // )
+                //console.log(findUser)
+            } catch (err) {
                 console.log(err)
             }
         })

@@ -39,7 +39,7 @@ app.use((req, res, next) => {
 app.use('/', userRoute)
 app.use('/', RequestRoute)
 app.get('/' , (req,res)=>{
-	res.send("Hello")
+	res.redirect(process.env.FRONTEND_URL)
 })
 
 socketHandler(io)

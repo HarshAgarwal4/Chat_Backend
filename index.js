@@ -16,12 +16,7 @@ const app = express()
 const httpServer = createServer(app)
 let users = {}
 
-const io = new Server(httpServer, {
-	cors: {
-		origin: process.env.FRONTEND_URL,
-		credentials: true,
-	}
-})
+const io = new Server(httpServer)
 app.use(cors({
 	origin: process.env.FRONTEND_URL,
 	credentials: true,

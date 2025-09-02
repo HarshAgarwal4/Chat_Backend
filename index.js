@@ -23,6 +23,11 @@ const io = new Server(httpServer, {
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors({
+  origin: "https://flowchat-one.vercel.app",
+  credentials: true,
+}))
+
 app.use(clerkMiddleware())
 app.use((req, res, next) => {
   if (req.path === "/" || req.path === '/unauth' || req.path==='/test-cors' || req.path.startsWith("/public")) {
@@ -30,10 +35,6 @@ app.use((req, res, next) => {
   }
   return requireAuth()(req, res, next) // Apply auth everywhere else
 })
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true,
-}))
 
 
 app.use('/', userRoute)

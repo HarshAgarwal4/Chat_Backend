@@ -25,7 +25,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(clerkMiddleware())
 app.use((req, res, next) => {
-  if (req.path === "/" || req.path === '/unauth' || req.path.startsWith("/public")) {
+  if (req.path === "/" || req.path === '/unauth' || req.path==='/test-cors' || req.path.startsWith("/public")) {
     return next() // Skip auth for these routes
   }
   return requireAuth()(req, res, next) // Apply auth everywhere else

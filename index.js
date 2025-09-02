@@ -45,6 +45,10 @@ app.get('/unauth' , (req,res)=> {
   console.log(req.cookies)
   res.send("Unauth")
 })
+app.get('/test-cors', (req, res) => {
+  res.json({ msg: "CORS is working", origin: req.headers.origin })
+})
+
 
 socketHandler(io)
 

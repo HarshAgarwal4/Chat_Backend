@@ -14,37 +14,46 @@ dotenv.config()
 
 const app = express()
 const httpServer = createServer(app)
-let users = {}
+const io = new Server(httpServer, {
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  }
+})
 
-const io = new Server(httpServer)
-app.use(cors({
-	origin: process.env.FRONTEND_URL,
-	credentials: true,
-}))
 app.use(express.json());
 app.use(cookieParser());
 app.use(clerkMiddleware())
 app.use((req, res, next) => {
-  if (req.path === "/" || req.path.startsWith("/public")) {
+  if (req.path === "/" || req.path === '/unauth' || req.path.startsWith("/public")) {
     return next() // Skip auth for these routes
   }
   return requireAuth()(req, res, next) // Apply auth everywhere else
 })
+app.use(cors({
+  origin: process.env.FRONTEND_URL,
+  credentials: true,
+}))
+
 
 app.use('/', userRoute)
 app.use('/', RequestRoute)
-app.get('/' , (req,res)=>{
-	res.redirect(process.env.FRONTEND_URL)
+app.get('/', (req, res) => {
+  res.redirect('/unauth')
+})
+app.get('/unauth' , (req,res)=> {
+  console.log(req.cookies)
+  res.send("Unauth")
 })
 
 socketHandler(io)
 
 mongoose.connect(process.env.DB_URL, {
-    dbName: "CHAT_APP",
+  dbName: "CHAT_APP",
 })
-.then(() => {
+  .then(() => {
     console.log("Database connected")
-	httpServer.listen(process.env.PORT, () => {
-		console.log(`Server running on port ${process.env.PORT}`);
-	});
-})
+    httpServer.listen(process.env.PORT, () => {
+      console.log(`Server running on port ${process.env.PORT}`);
+    });
+  })

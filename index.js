@@ -1,64 +1,82 @@
-import express from 'express'
-import { createServer } from 'http'
-import { Server } from 'socket.io'
-import dotenv from 'dotenv'
-import bodyParser from 'body-parser'
-import cookieParser from 'cookie-parser'
-import mongoose from 'mongoose'
-import cors from 'cors'
-import { userRoute } from './client/routes/User.js'
-import { clerkMiddleware, clerkClient, requireAuth, getAuth } from '@clerk/express'
-import socketHandler from './services/SocketHandler.js'
-import { RequestRoute } from './client/routes/request.js'
-dotenv.config()
+import express from "express";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import mongoose from "mongoose";
+import cors from "cors";
+import { userRoute } from "./client/routes/User.js";
+import { RequestRoute } from "./client/routes/request.js";
+import {
+  clerkMiddleware,
+  requireAuth,
+} from "@clerk/express";
+import socketHandler from "./services/SocketHandler.js";
 
-const app = express()
-const httpServer = createServer(app)
+dotenv.config();
+
+const app = express();
+const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
     origin: process.env.FRONTEND_URL,
     credentials: true,
-  }
-})
+  },
+});
 
+// ----- Middleware -----
+app.set("trust proxy", 1); // Important for Clerk (cookies over HTTPS)
 app.use(express.json());
 app.use(cookieParser());
-app.use(bodyParser.json())
-app.use(cors({
-  origin: process.env.FRONTEND_URL,
-  credentials: true,
-}))
-app.use(clerkMiddleware())
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true,
+  })
+);
+app.use(clerkMiddleware());
+
+// ----- Auth Handling -----
+const publicRoutes = ["/", "/unauth", "/test-cors", "/public"];
 app.use((req, res, next) => {
-  if (req.path === "/" || req.path === '/unauth' || req.path==='/test-cors' || req.path.startsWith("/public")) {
-    return next() // Skip auth for these routes
+  if (publicRoutes.some((path) => req.path === path || req.path.startsWith(path))) {
+    return next();
   }
-  return requireAuth()(req, res, next) // Apply auth everywhere else
-})
+  return requireAuth()(req, res, next);
+});
 
+// ----- Routes -----
+app.use("/api/users", userRoute);
+app.use("/api/requests", RequestRoute);
 
-app.use('/', userRoute)
-app.use('/', RequestRoute)
-app.get('/', (req, res) => {
-  res.redirect('/unauth')
-})
-app.get('/unauth' , (req,res)=> {
-  console.log(req.cookies)
-  res.send("Unauth")
-})
-app.get('/test-cors', (req, res) => {
-  res.send({ msg: "CORS is working", origin: req.headers.origin })
-})
+app.get("/", (req, res) => res.redirect("/unauth"));
+app.get("/unauth", (req, res) => {
+  console.log(req.cookies);
+  res.send("Unauth");
+});
+app.get("/test-cors", (req, res) => {
+  res.send({ msg: "CORS is working", origin: req.headers.origin });
+});
 
+// ----- Socket.io -----
+socketHandler(io);
 
-socketHandler(io)
-
-mongoose.connect(process.env.DB_URL, {
-  dbName: "CHAT_APP",
-})
+// ----- Database + Server -----
+mongoose
+  .connect(process.env.DB_URL, { dbName: "CHAT_APP" })
   .then(() => {
-    console.log("Database connected")
-    httpServer.listen(process.env.PORT, () => {
-      console.log(`Server running on port ${process.env.PORT}`);
+    console.log("✅ Database connected");
+    httpServer.listen(process.env.PORT || 5000, () => {
+      console.log(`🚀 Server running on port ${process.env.PORT || 5000}`);
     });
   })
+  .catch((err) => {
+    console.error("❌ DB connection error:", err.message);
+    process.exit(1);
+  });
+
+// ----- Global Error Handler -----
+app.use((err, req, res, next) => {
+  console.error("🔥 Server Error:", err);
+  res.status(500).json({ error: "Something went wrong" });
+});

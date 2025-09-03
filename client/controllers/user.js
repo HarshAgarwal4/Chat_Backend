@@ -26,6 +26,7 @@ async function fetchUser(req,res){
 	const auth = getAuth(req)
 	const id = auth.userId
 	try{
+		console.log(id)
 		let findUser = await userModel.findOne({clerkId: id})
 		if(!findUser) return res.send({status: 2, msg:"User not found"})
 		return res.send({status:1 , msg:"User found" , user:findUser})

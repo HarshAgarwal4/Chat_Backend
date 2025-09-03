@@ -41,7 +41,6 @@ app.use("/", RequestRoute);
 
 socketHandler(io);
 
-// ----- Database + Server -----
 mongoose
   .connect(process.env.DB_URL, { dbName: "CHAT_APP" })
   .then(() => {

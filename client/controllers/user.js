@@ -2,11 +2,12 @@ import { clerkMiddleware , clerkClient, requireAuth, getAuth  } from '@clerk/exp
 import { userModel } from '../models/User.js'
 
 async function saveUser(req , res) {
+	console.log(req.cookies)
 	const { userId } = getAuth(req)
 	console.log(userId)
-	const user = await clerkClient.users.getUser(userId)
-	console.log(user)
 	try{
+		const user = await clerkClient.users.getUser(userId)
+		console.log(user)
 		let obj = new userModel({
 			clerkId: user.id,
 			username: user.username,

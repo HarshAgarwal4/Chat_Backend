@@ -24,8 +24,7 @@ const io = new Server(httpServer, {
   },
 });
 
-// ----- Middleware -----
-app.set("trust proxy", 1); // Important for Clerk (cookies over HTTPS)
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -35,30 +34,11 @@ app.use(
   })
 );
 app.use(clerkMiddleware());
+app.use(requireAuth());
 
-// ----- Auth Handling -----
-const publicRoutes = ["/", "/unauth", "/test-cors", "/public"];
-app.use((req, res, next) => {
-  if (publicRoutes.some((path) => req.path === path || req.path.startsWith(path))) {
-    return next();
-  }
-  return requireAuth()(req, res, next);
-});
-
-// ----- Routes -----
 app.use("/", userRoute);
 app.use("/", RequestRoute);
 
-app.get("/", (req, res) => res.redirect("/unauth"));
-app.get("/unauth", (req, res) => {
-  console.log(req.cookies);
-  res.send("Unauth");
-});
-app.get("/test-cors", (req, res) => {
-  res.send({ msg: "CORS is working", origin: req.headers.origin });
-});
-
-// ----- Socket.io -----
 socketHandler(io);
 
 // ----- Database + Server -----

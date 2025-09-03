@@ -74,9 +74,3 @@ mongoose
     console.error("❌ DB connection error:", err.message);
     process.exit(1);
   });
-
-// ----- Global Error Handler -----
-app.use((err, req, res, next) => {
-  console.error("🔥 Server Error:", err);
-  res.status(500).json({ error: "Something went wrong" });
-});

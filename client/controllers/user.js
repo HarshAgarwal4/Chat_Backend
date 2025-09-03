@@ -3,7 +3,9 @@ import { userModel } from '../models/User.js'
 
 async function saveUser(req , res) {
 	const { userId } = getAuth(req)
+	console.log(userId)
 	const user = await clerkClient.users.getUser(userId)
+	console.log(user)
 	try{
 		let obj = new userModel({
 			clerkId: user.id,

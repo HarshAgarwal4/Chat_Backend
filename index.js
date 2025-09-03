@@ -16,18 +16,18 @@ const app = express()
 const httpServer = createServer(app)
 const io = new Server(httpServer, {
   cors: {
-    origin: "https://flowchat-one.vercel.app",
+    origin: process.env.FRONTEND_URL,
     credentials: true,
   }
 })
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(bodyParser.json())
 app.use(cors({
-  origin: "https://flowchat-one.vercel.app",
+  origin: process.env.FRONTEND_URL,
   credentials: true,
 }))
-
 app.use(clerkMiddleware())
 app.use((req, res, next) => {
   if (req.path === "/" || req.path === '/unauth' || req.path==='/test-cors' || req.path.startsWith("/public")) {
@@ -47,7 +47,7 @@ app.get('/unauth' , (req,res)=> {
   res.send("Unauth")
 })
 app.get('/test-cors', (req, res) => {
-  res.json({ msg: "CORS is working", origin: req.headers.origin })
+  res.send({ msg: "CORS is working", origin: req.headers.origin })
 })
 
 

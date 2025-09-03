@@ -46,8 +46,8 @@ app.use((req, res, next) => {
 });
 
 // ----- Routes -----
-app.use("/api/users", userRoute);
-app.use("/api/requests", RequestRoute);
+app.use("/", userRoute);
+app.use("/", RequestRoute);
 
 app.get("/", (req, res) => res.redirect("/unauth"));
 app.get("/unauth", (req, res) => {

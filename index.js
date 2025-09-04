@@ -24,7 +24,8 @@ const io = new Server(httpServer, {
   },
 });
 
-app.set("trust proxy", 1);
+// ----- Middleware -----
+app.set("trust proxy", 1); // Important for Clerk (cookies over HTTPS)
 app.use(express.json());
 app.use(cookieParser());
 app.use(
@@ -35,20 +36,32 @@ app.use(
 );
 app.use(clerkMiddleware());
 
-// --- Public routes ---
-app.get("/", (req, res) => res.send("Server running ✅"));
+// ----- Auth Handling -----
+const publicRoutes = ["/", "/unauth", "/test-cors", "/public"];
+app.use((req, res, next) => {
+  if (publicRoutes.some((path) => req.path === path || req.path.startsWith(path))) {
+    return next();
+  }
+  return requireAuth()(req, res, next);
+});
+
+// ----- Routes -----
+app.use("/", userRoute);
+app.use("/", RequestRoute);
+
+app.get("/", (req, res) => res.redirect("/unauth"));
+app.get("/unauth", (req, res) => {
+  console.log(req.cookies);
+  res.send("Unauth");
+});
 app.get("/test-cors", (req, res) => {
   res.send({ msg: "CORS is working", origin: req.headers.origin });
 });
 
-// --- Protected routes ---
-app.use("/", requireAuth(), userRoute);
-app.use("/", requireAuth(), RequestRoute);
-
-// --- Socket.io ---
+// ----- Socket.io -----
 socketHandler(io);
 
-// --- Database + Server ---
+// ----- Database + Server -----
 mongoose
   .connect(process.env.DB_URL, { dbName: "CHAT_APP" })
   .then(() => {

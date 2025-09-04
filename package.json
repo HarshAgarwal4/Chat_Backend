@@ -1,7 +1,7 @@
 {
   "name": "chatapp",
   "version": "1.0.0",
-  "description": "",
+  "description": "chat app",
   "license": "ISC",
   "author": "",
   "type": "module",
@@ -27,5 +27,3 @@
     "socket.io": "^4.8.1"
   }
 }
-
-

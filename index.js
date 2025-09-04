@@ -34,13 +34,21 @@ app.use(
   })
 );
 app.use(clerkMiddleware());
-app.use(requireAuth());
 
-app.use("/", userRoute);
-app.use("/", RequestRoute);
+// --- Public routes ---
+app.get("/", (req, res) => res.send("Server running ✅"));
+app.get("/test-cors", (req, res) => {
+  res.send({ msg: "CORS is working", origin: req.headers.origin });
+});
 
+// --- Protected routes ---
+app.use("/", requireAuth(), userRoute);
+app.use("/", requireAuth(), RequestRoute);
+
+// --- Socket.io ---
 socketHandler(io);
 
+// --- Database + Server ---
 mongoose
   .connect(process.env.DB_URL, { dbName: "CHAT_APP" })
   .then(() => {

@@ -34,7 +34,15 @@ app.use(
     credentials: true,
   })
 );
-app.use(clerkMiddleware());
+app.use(
+  clerkMiddleware({
+    cookieOptions: {
+      sameSite: "None",
+      secure: true,
+      httpOnly: true
+    }
+  })
+);
 
 // ----- Auth Handling -----
 const publicRoutes = ["/", "/unauth", "/test-cors", "/public"];

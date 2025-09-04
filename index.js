@@ -49,7 +49,10 @@ app.use((req, res, next) => {
 app.use("/", userRoute);
 app.use("/", RequestRoute);
 
-app.get("/", (req, res) => res.redirect("/unauth"));
+app.get("/", (req, res) => {
+  console.log(req)
+  return res.send(req)
+});
 app.get("/unauth", (req, res) => {
   console.log(req.cookies);
   res.send("Unauth");

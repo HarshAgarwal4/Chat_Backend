@@ -33,17 +33,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(clerkMiddleware({
-  authorizedParties: [process.env.FRONTEND_URL]
-}));
-
-// const publicRoutes = ["/", "/unauth", "/test-cors", "/public"];
-// app.use((req, res, next) => {
-//   if (publicRoutes.some((path) => req.path === path || req.path.startsWith(path))) {
-//     return next();
-//   }
-//   return requireAuth()(req, res, next);
-// });
+app.use(clerkMiddleware());
 
 app.use("/", userRoute);
 app.use("/", RequestRoute);

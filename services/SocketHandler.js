@@ -1,123 +1,109 @@
-import { userModel } from "../client/models/User.js"
+import { data, loadData, saveData } from './dataStore.js';
 
-let users = {}
-let PendingMessages = {}
-let CopyOfPendingMessages = {}
-let PendingRequests = {}
-let pendingApprovals = {}
+loadData(); // Load previous data if exists
 
 async function socketHandler(io) {
-    io.on('connection', (socket) => {
-        console.log(socket.id)
+  io.on('connection', (socket) => {
+    console.log('Socket connected:', socket.id);
 
-        socket.on('register', (userId) => {
-            users[userId] = socket.id
-            io.to(users[userId]).emit('registered', socket.id)
-            console.log(users)
-            socket.broadcast.emit('Online-status', userId)
-            if (PendingMessages[userId]) {
-                PendingMessages[userId].forEach((msg) => {
-                    io.to(users[userId]).emit('recieve-message', msg)
-                    console.log('Delivered pending message : ', msg)
-                });
-                delete PendingMessages[userId]
-            }
-            if (PendingRequests[userId]) {
-                PendingRequests[userId].forEach((request) => {
-                    io.to(users[userId]).emit('recieved-request', request)
-                })
-                delete PendingRequests[userId]
-            }
-            if (pendingApprovals[userId]) {
-                pendingApprovals[userId].forEach((request) => {
-                    io.to(users[userId]).emit('accepted', request)
-                })
-                delete pendingApprovals[userId]
-            }
-        })
+    socket.on('register', (userId) => {
+      data.users[userId] = socket.id;
+      io.to(socket.id).emit('registered', socket.id);
+      socket.broadcast.emit('Online-status', userId);
 
-        socket.on('send-message', (obj) => {
-            console.log(obj)
-            let obj1 = {
-                from: obj.from,
-                msg: obj.msg,
-                Time: new Date().toISOString(),
-                Date: new Date().toISOString()
-            }
-            console.log(obj1)
-            if (users[obj.to]) {
-                io.to(users[obj.to]).emit('recieve-message', obj1)
-            } else {
-                if (!PendingMessages[obj.to]) PendingMessages[obj.to] = []
-                PendingMessages[obj.to].push(obj1)
-            }
-        })
+      // Deliver pending messages
+      if (data.PendingMessages[userId]) {
+        data.PendingMessages[userId].forEach(msg => {
+          io.to(socket.id).emit('recieve-message', msg);
+        });
+        delete data.PendingMessages[userId];
+      }
 
-        socket.on('send-request', (obj) => {
-            console.log('send' , obj)
-            let senderObj = {
-                username: obj.myusername,
-                avatar: obj.myavatar,
-                userId: obj.myuserId
-            }
-            let recieverObj = {
-                username: obj.username,
-                avatar: obj.avatar,
-                userId: obj.userId
-            }
-            if (users[obj.userId]) {
-                io.to(users[obj.userId]).emit('recieved-request', senderObj)
-            } else {
-                if (!PendingRequests[obj.userId]) PendingRequests[obj.userId] = []
-                PendingRequests[obj.userId].push(senderObj)
-            }
-        })
+      // Deliver pending requests
+      if (data.PendingRequests[userId]) {
+        data.PendingRequests[userId].forEach(req => {
+          io.to(socket.id).emit('recieved-request', req);
+        });
+        delete data.PendingRequests[userId];
+      }
 
-        socket.on('accept-request', (obj) => {
-            console.log(obj)
-            let obj2 = {
-                username: obj.username,
-                avatar: obj.avatar,
-                userId: obj.myuserId
-            }
-            let userId = obj.userId
-            if (users[obj.userId]) {
-                io.to(users[obj.userId]).emit('accepted', obj2)
-            } else {
-                if (!pendingApprovals[obj.userId]) pendingApprovals[obj.userId] = []
-                pendingApprovals[obj.userId].push(obj2)
-            }
-        })
+      // Deliver pending approvals
+      if (data.pendingApprovals[userId]) {
+        data.pendingApprovals[userId].forEach(req => {
+          io.to(socket.id).emit('accepted', req);
+        });
+        delete data.pendingApprovals[userId];
+      }
 
-        socket.on('user-disconnect', async (contacts, id) => {
-            socket.broadcast.emit('Offline-status' , id)
-            try {
-                //console.log(contacts, id)
-                // let findUser = await userModel.findOneAndUpdate(
-                //     { clerkId: id },
-                //     {
-                //         $set: {
-                //             contacts: JSON.parse(contacts)
-                //         }
-                //     },
-                //     { new: true }
-                // )
-                //console.log(findUser)
-            } catch (err) {
-                console.log(err)
-            }
-        })
+      saveData();
+    });
 
-        socket.on('disconnect', () => {
-            for (const [userId, id] of Object.entries(users)) {
-                if (id === socket.id) {
-                    delete users[userId]
-                    break;
-                }
-            }
-            console.log(users)
-        })
-    })
+    // Send message
+    socket.on('send-message', (obj) => {
+      const msg = {
+        from: obj.from,
+        msg: obj.msg,
+        Time: new Date().toISOString(),
+        Date: new Date().toISOString()
+      };
+
+      const toSocket = data.users[obj.to];
+      if (toSocket) {
+        io.to(toSocket).emit('recieve-message', msg);
+      } else {
+        if (!data.PendingMessages[obj.to]) data.PendingMessages[obj.to] = [];
+        data.PendingMessages[obj.to].push(msg);
+      }
+
+      saveData();
+    });
+
+    // Send request
+    socket.on('send-request', (obj) => {
+      const senderObj = { username: obj.myusername, avatar: obj.myavatar, userId: obj.myuserId };
+      const toSocket = data.users[obj.userId];
+      if (toSocket) {
+        io.to(toSocket).emit('recieved-request', senderObj);
+      } else {
+        if (!data.PendingRequests[obj.userId]) data.PendingRequests[obj.userId] = [];
+        data.PendingRequests[obj.userId].push(senderObj);
+      }
+
+      saveData();
+    });
+
+    // Accept request
+    socket.on('accept-request', (obj) => {
+      const approval = { username: obj.username, avatar: obj.avatar, userId: obj.myuserId };
+      const toSocket = data.users[obj.userId];
+      if (toSocket) {
+        io.to(toSocket).emit('accepted', approval);
+      } else {
+        if (!data.pendingApprovals[obj.userId]) data.pendingApprovals[obj.userId] = [];
+        data.pendingApprovals[obj.userId].push(approval);
+      }
+
+      saveData();
+    });
+
+    // User disconnect
+    socket.on('user-disconnect', (contacts, id) => {
+      socket.broadcast.emit('Offline-status', id);
+      saveData();
+    });
+
+    // Remove user from users on disconnect
+    socket.on('disconnect', () => {
+      for (const [userId, id] of Object.entries(data.users)) {
+        if (id === socket.id) {
+          delete data.users[userId];
+          break;
+        }
+      }
+      saveData();
+      console.log('Users:', data.users);
+    });
+  });
 }
 
-export default socketHandler
+export default socketHandler;

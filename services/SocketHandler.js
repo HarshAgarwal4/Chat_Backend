@@ -1,4 +1,4 @@
-import { data, loadData, saveData } from './dataStore.js';
+import { data, loadData, saveData } from '../services/dataStore.js';
 
 loadData(); // Load previous data if exists
 

@@ -6,12 +6,6 @@ let CopyOfPendingMessages = {}
 let PendingRequests = {}
 let pendingApprovals = {}
 
-async function CheckChanges(Copy, Original) {
-    if (JSON.stringify(Copy) === JSON.stringify(Original)) {
-        Original = Copy
-    }
-}
-
 async function socketHandler(io) {
     io.on('connection', (socket) => {
         console.log(socket.id)
@@ -47,12 +41,12 @@ async function socketHandler(io) {
             let obj1 = {
                 from: obj.from,
                 msg: obj.msg,
-                Time: new Date().toLocaleTimeString().slice(0,5),
-                Date: new Date().toLocaleDateString()
+                Time: new Date().toISOString(),
+                Date: new Date().toISOString()
             }
+            console.log(obj1)
             if (users[obj.to]) {
                 io.to(users[obj.to]).emit('recieve-message', obj1)
-                console.log('Hello')
             } else {
                 if (!PendingMessages[obj.to]) PendingMessages[obj.to] = []
                 PendingMessages[obj.to].push(obj1)
@@ -88,7 +82,7 @@ async function socketHandler(io) {
             }
             let userId = obj.userId
             if (users[obj.userId]) {
-                io.to(obj.userId).emit('accepted', obj2)
+                io.to(users[obj.userId]).emit('accepted', obj2)
             } else {
                 if (!pendingApprovals[obj.userId]) pendingApprovals[obj.userId] = []
                 pendingApprovals[obj.userId].push(obj2)

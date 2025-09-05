@@ -2,8 +2,7 @@ import { getAuth } from "@clerk/express"
 import { userModel } from "../models/User.js"
 
 async function sendRequest(req, res) {
-    let { to, username, avatar, myUsername, myavatar } = req.body
-    const { userId } = getAuth(req)
+    let { to, username, avatar, myUsername, myavatar , UserId } = req.body
     try {
         let updateUser = await userModel.findOneAndUpdate(
             { clerkId: to }
@@ -12,7 +11,7 @@ async function sendRequest(req, res) {
                 $addToSet: {
                     IncomingRequests: {
                         From: {
-                            userId,
+                            userId : UserId,
                             avatar: myavatar,
                             username: myUsername
                         },
@@ -26,7 +25,7 @@ async function sendRequest(req, res) {
             })
         if (!updateUser) return res.send({ status: 2, msg: "request not send" })
         let updateSender = await userModel.findOneAndUpdate(
-            { clerkId: userId },
+            { clerkId: UserId },
             {
                 $addToSet: {
                     SendRequest: {
@@ -49,11 +48,10 @@ async function sendRequest(req, res) {
 }
 
 async function AcceptRequest(req, res) {
-    let { id, username, avatar, myusername, myavatar} = req.body
-    const { userId } = getAuth(req)
+    let { id, username, avatar, myusername, myavatar , UserId} = req.body
     try {
         let updateSender = await userModel.findOneAndUpdate(
-            { clerkId: userId },
+            { clerkId: UserId },
             {
                 $pull: {
                     IncomingRequests: {"From.userId" : id}
@@ -75,12 +73,12 @@ async function AcceptRequest(req, res) {
             {clerkId: id},
             {
                 $pull:{
-                    SendRequest:{"To.userId" : userId}
+                    SendRequest:{"To.userId" : UserId}
                 },
                 $addToSet:{
                     contacts:{
                         username: myusername,
-                        userId: userId,
+                        userId: UserId,
                         DisplayName: myusername || null,
                         avatar: myavatar,
                         messages: []
@@ -101,13 +99,11 @@ async function AcceptRequest(req, res) {
 }
 
 async function RejectRequest(req, res) {
-    let { id } = req.body
-    console.log(id)
-    const { userId } = getAuth(req)
+    let { id , UserId} = req.body
 
     try {
         let updateRecipient = await userModel.findOneAndUpdate(
-            { clerkId: userId },
+            { clerkId: UserId },
             {
                 $pull: { IncomingRequests: { "From.userId": id } }
             },
@@ -116,7 +112,7 @@ async function RejectRequest(req, res) {
         if (!updateRecipient) return res.send({ status: 2, msg: "request not found" })
 
         let updateSender = await userModel.findOneAndUpdate(
-            { clerkId: id, "SendRequest.To.userId": userId },
+            { clerkId: id, "SendRequest.To.userId": UserId },
             {
                 $set: { "SendRequest.$.status": "Rejected" }
             },
@@ -132,11 +128,10 @@ async function RejectRequest(req, res) {
 }
 
 async function setname(req , res) {
-    let {userId} = getAuth(req)
-    let {id , name} = req.body
+    let {id , name  , UserId} = req.body
     try{
         let updatedUser = await userModel.findOneAndUpdate(
-            {clerkId: userId , "contacts.userId" : id},
+            {clerkId: UserId , "contacts.userId" : id},
             {$set:{
                 "contacts.$.DisplayName" : name
             }},

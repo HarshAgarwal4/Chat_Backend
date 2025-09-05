@@ -2,12 +2,9 @@ import { clerkMiddleware , clerkClient, requireAuth, getAuth  } from '@clerk/exp
 import { userModel } from '../models/User.js'
 
 async function saveUser(req , res) {
-	console.log(req.cookies)
-	const { userId } = getAuth(req)
-	console.log(userId)
+	const {UserId} = req.body 
 	try{
-		const user = await clerkClient.users.getUser(userId)
-		console.log(user)
+		const user = await clerkClient.users.getUser(UserId)
 		let obj = new userModel({
 			clerkId: user.id,
 			username: user.username,
@@ -23,11 +20,9 @@ async function saveUser(req , res) {
 }
 
 async function fetchUser(req,res){
-	const auth = getAuth(req)
-	const id = auth.userId
+	const {UserId} = req.body
 	try{
-		console.log(id)
-		let findUser = await userModel.findOne({clerkId: id})
+		let findUser = await userModel.findOne({clerkId: UserId})
 		if(!findUser) return res.send({status: 2, msg:"User not found"})
 		return res.send({status:1 , msg:"User found" , user:findUser})
 	}catch(err) {

@@ -1,98 +1,122 @@
-import { createClient } from "redis";
-import { createAdapter } from "@socket.io/redis-adapter";
-import { userModel } from "../client/models/User.js";
+import { userModel } from "../client/models/User.js"
 
-let redisClient, pubClient, subClient;
-
-async function initRedis() {
-  redisClient = createClient({ url: process.env.REDIS_URL });
-  redisClient.on("error", (err) => console.error("Redis Client Error:", err));
-  await redisClient.connect();
-
-  pubClient = redisClient.duplicate();
-  subClient = redisClient.duplicate();
-  await pubClient.connect();
-  await subClient.connect();
-}
+let users = {}
+let PendingMessages = {}
+let PendingRequests = {}
+let pendingApprovals = {}
 
 async function socketHandler(io) {
-  if (!redisClient) await initRedis();
+    io.on('connection', (socket) => {
+        console.log(socket.id)
 
-  // Attach Redis adapter for multi-instance
-  io.adapter(createAdapter(pubClient, subClient));
+        socket.on('register', (userId) => {
+            users[userId] = socket.id
+            io.to(users[userId]).emit('registered', socket.id)
+            console.log(users)
+            socket.broadcast.emit('Online-status', userId)
+            if (PendingMessages[userId]) {
+                PendingMessages[userId].forEach((msg) => {
+                    io.to(users[userId]).emit('recieve-message', msg)
+                    console.log('Delivered pending message : ', msg)
+                });
+                delete PendingMessages[userId]
+            }
+            if (PendingRequests[userId]) {
+                PendingRequests[userId].forEach((request) => {
+                    io.to(users[userId]).emit('recieved-request', request)
+                })
+                delete PendingRequests[userId]
+            }
+            if (pendingApprovals[userId]) {
+                pendingApprovals[userId].forEach((request) => {
+                    io.to(users[userId]).emit('accepted', request)
+                })
+                delete pendingApprovals[userId]
+            }
+        })
 
-  io.on("connection", (socket) => {
-    console.log("New socket connected:", socket.id);
+        socket.on('send-message', (obj) => {
+            console.log(obj)
+            let obj1 = {
+                from: obj.from,
+                msg: obj.msg,
+                Time: new Date().toISOString(),
+                Date: new Date().toISOString()
+            }
+            console.log(obj1)
+            if (users[obj.to]) {
+                io.to(users[obj.to]).emit('recieve-message', obj1)
+            } else {
+                if (!PendingMessages[obj.to]) PendingMessages[obj.to] = []
+                PendingMessages[obj.to].push(obj1)
+            }
+        })
 
-    socket.on("register", async (userId) => {
-      await redisClient.hSet("onlineUsers", userId, socket.id);
-      io.to(socket.id).emit("registered", socket.id);
-      socket.broadcast.emit("Online-status", userId);
+        socket.on('send-request', (obj) => {
+            console.log('send' , obj)
+            let senderObj = {
+                username: obj.myusername,
+                avatar: obj.myavatar,
+                userId: obj.myuserId
+            }
+            let recieverObj = {
+                username: obj.username,
+                avatar: obj.avatar,
+                userId: obj.userId
+            }
+            if (users[obj.userId]) {
+                io.to(users[obj.userId]).emit('recieved-request', senderObj)
+            } else {
+                if (!PendingRequests[obj.userId]) PendingRequests[obj.userId] = []
+                PendingRequests[obj.userId].push(senderObj)
+            }
+        })
 
-      // Pending messages
-      const pendingMessages = await redisClient.lRange(`pendingMessages:${userId}`, 0, -1);
-      pendingMessages.forEach((msg) => io.to(socket.id).emit("recieve-message", JSON.parse(msg)));
-      await redisClient.del(`pendingMessages:${userId}`);
+        socket.on('accept-request', (obj) => {
+            console.log(obj)
+            let obj2 = {
+                username: obj.username,
+                avatar: obj.avatar,
+                userId: obj.myuserId
+            }
+            let userId = obj.userId
+            if (users[obj.userId]) {
+                io.to(users[obj.userId]).emit('accepted', obj2)
+            } else {
+                if (!pendingApprovals[obj.userId]) pendingApprovals[obj.userId] = []
+                pendingApprovals[obj.userId].push(obj2)
+            }
+        })
 
-      // Pending requests
-      const pendingRequests = await redisClient.lRange(`pendingRequests:${userId}`, 0, -1);
-      pendingRequests.forEach((req) => io.to(socket.id).emit("recieved-request", JSON.parse(req)));
-      await redisClient.del(`pendingRequests:${userId}`);
+        socket.on('user-disconnect', async (contacts, id) => {
+            socket.broadcast.emit('Offline-status' , id)
+            try {
+                //console.log(contacts, id)
+                // let findUser = await userModel.findOneAndUpdate(
+                //     { clerkId: id },
+                //     {
+                //         $set: {
+                //             contacts: JSON.parse(contacts)
+                //         }
+                //     },
+                //     { new: true }
+                // )
+                //console.log(findUser)
+            } catch (err) {
+                console.log(err)
+            }
+        })
 
-      // Pending approvals
-      const pendingApprovals = await redisClient.lRange(`pendingApprovals:${userId}`, 0, -1);
-      pendingApprovals.forEach((approval) => io.to(socket.id).emit("accepted", JSON.parse(approval)));
-      await redisClient.del(`pendingApprovals:${userId}`);
-    });
-
-    socket.on("send-message", async (obj) => {
-      const msgObj = { from: obj.from, msg: obj.msg, Time: new Date().toISOString(), Date: new Date().toISOString() };
-      const toSocketId = await redisClient.hGet("onlineUsers", obj.to);
-
-      if (toSocketId) io.to(toSocketId).emit("recieve-message", msgObj);
-      else await redisClient.lPush(`pendingMessages:${obj.to}`, JSON.stringify(msgObj));
-    });
-
-    socket.on("send-request", async (obj) => {
-      const senderObj = { username: obj.myusername, avatar: obj.myavatar, userId: obj.myuserId };
-      const toSocketId = await redisClient.hGet("onlineUsers", obj.userId);
-
-      if (toSocketId) io.to(toSocketId).emit("recieved-request", senderObj);
-      else await redisClient.lPush(`pendingRequests:${obj.userId}`, JSON.stringify(senderObj));
-    });
-
-    socket.on("accept-request", async (obj) => {
-      const approvalObj = { username: obj.username, avatar: obj.avatar, userId: obj.myuserId };
-      const toSocketId = await redisClient.hGet("onlineUsers", obj.userId);
-
-      if (toSocketId) io.to(toSocketId).emit("accepted", approvalObj);
-      else await redisClient.lPush(`pendingApprovals:${obj.userId}`, JSON.stringify(approvalObj));
-    });
-
-    socket.on("user-disconnect", async (contacts, id) => {
-      socket.broadcast.emit("Offline-status", id);
-      try {
-        await userModel.findOneAndUpdate(
-          { clerkId: id },
-          { $set: { contacts: JSON.parse(contacts) } },
-          { new: true }
-        );
-      } catch (err) {
-        console.log("Error updating contacts:", err);
-      }
-    });
-
-    socket.on("disconnect", async () => {
-      const onlineUsers = await redisClient.hGetAll("onlineUsers");
-      for (const [userId, socketId] of Object.entries(onlineUsers)) {
-        if (socketId === socket.id) {
-          await redisClient.hDel("onlineUsers", userId);
-          break;
-        }
-      }
-      console.log("Online users:", await redisClient.hGetAll("onlineUsers"));
-    });
-  });
+        socket.on('disconnect', () => {
+            for (const [userId, id] of Object.entries(users)) {
+                if (id === socket.id) {
+                    delete users[userId]
+                    break;
+                }
+            }
+            console.log(users)
+        })
+    })
 }
 
-export default socketHandler;
+export default socketHandler

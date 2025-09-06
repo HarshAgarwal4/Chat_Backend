@@ -35,6 +35,15 @@ async function socketHandler(io) {
             }
         })
 
+        socket.on('check-register', (id, callback) => {
+            console.log(id);
+            if (users[id]) {
+                callback({ exists: true, socketId: users[id] });
+            } else {
+                callback({ exists: false });
+            }
+        });
+
         socket.on('send-message', (obj) => {
             console.log(obj)
             let obj1 = {
@@ -53,7 +62,7 @@ async function socketHandler(io) {
         })
 
         socket.on('send-request', (obj) => {
-            console.log('send' , obj)
+            console.log('send', obj)
             let senderObj = {
                 username: obj.myusername,
                 avatar: obj.myavatar,
@@ -89,7 +98,7 @@ async function socketHandler(io) {
         })
 
         socket.on('user-disconnect', async (contacts, id) => {
-            socket.broadcast.emit('Offline-status' , id)
+            socket.broadcast.emit('Offline-status', id)
             try {
                 //console.log(contacts, id)
                 // let findUser = await userModel.findOneAndUpdate(

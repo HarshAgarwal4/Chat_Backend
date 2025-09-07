@@ -100,17 +100,17 @@ async function socketHandler(io) {
         socket.on('user-disconnect', async (contacts, id) => {
             socket.broadcast.emit('Offline-status', id)
             try {
-                //console.log(contacts, id)
-                // let findUser = await userModel.findOneAndUpdate(
-                //     { clerkId: id },
-                //     {
-                //         $set: {
-                //             contacts: JSON.parse(contacts)
-                //         }
-                //     },
-                //     { new: true }
-                // )
-                //console.log(findUser)
+                console.log(contacts, id)
+                let findUser = await userModel.findOneAndUpdate(
+                    { clerkId: id },
+                    {
+                        $set: {
+                            contacts: JSON.parse(contacts)
+                        }
+                    },
+                    { new: true }
+                )
+                console.log(findUser)
             } catch (err) {
                 console.log(err)
             }

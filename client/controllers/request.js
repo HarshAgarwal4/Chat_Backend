@@ -128,15 +128,17 @@ async function RejectRequest(req, res) {
 }
 
 async function setname(req , res) {
-    let {id , name  , UserId} = req.body
+    let {id , name  , userId} = req.body
+    console.log(id , name , userId)
     try{
         let updatedUser = await userModel.findOneAndUpdate(
-            {clerkId: UserId , "contacts.userId" : id},
+            {clerkId: userId , "contacts.userId" : id},
             {$set:{
                 "contacts.$.DisplayName" : name
             }},
             {new:true}
         )
+        console.log(updatedUser)
         if(!updatedUser) return res.send({status: 2 , msg:"Updation failed"})
         if(updatedUser) return res.send({status: 1, msg:"Updation succesfull"})
     }catch(err) {
